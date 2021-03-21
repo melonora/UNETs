@@ -37,3 +37,24 @@ class UNET_encoder(nn.Module):
             features.append(x)
             x = self.pool(x)
         return features
+
+class UNET_decoder(nn.Module):
+    def __init__(self, channels = (1024, 512, 256, 128, 64)):
+        super().__init__()
+        self.upconvs = nn.ModuleList([nn.ConvTranspose2d(channels[i], channels[i+1], 2, 2) for i in range(len(channels)-1)])
+        self.decode_UNET = nn.ModuleList([Unet_block(channels[i], channels[i+1]) for i in range(len(channels)-1)])
+        self.channels = channels
+
+    def crop(self, encoder_feature, x):
+        _, _, H, W = x.shape
+        encoder_feature = torchvision.transforms.CenterCrop([H, W])(encoder_features)
+        return encoder_features
+
+    def forward(self, x, encoder_features):
+        for i in range(len(self.channels)-1):
+            x = self.upconvs[i](x)
+            encoder_feature = self.crop(encoder_features[i], x)
+            x = torch.cat([x, encoder_feature])
+            x = self.decode_UNET[i](x)
+        return x
+
