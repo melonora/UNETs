@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Unet_block(nn.Module):
-    """ Standard block as used in the UNET paper"""
+    """ Standard block as used in the encoder and decoder in UNET paper"""
     def __init__(self, ch_in, ch_out):
         super().__init__()
         self.conv1 = nn.conv2d(ch_in, ch_out, 3)
