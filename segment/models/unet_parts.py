@@ -9,7 +9,7 @@ class UNETBlock(nn.Module):
     def __init__(self, ch_in: int, ch_out: int):
         super().__init__()
         self.conv1 = nn.Conv2d(ch_in, ch_out, (3, 3))
-        self.relu = nn.ReLU()
+        self.ReLU = nn.ReLU()
         self.conv2 = nn.Conv2d(ch_out, ch_out, (3, 3))
 
     def forward(self, x):
@@ -26,7 +26,7 @@ class UNETBlock(nn.Module):
         torch.Tensor
             Output of the UNET block as per used in the UNET paper.
         """
-        return self.relu(self.conv2(self.relu(self.conv1(x))))
+        return self.ReLU(self.conv2(self.ReLU(self.conv1(x))))
 
 
 class UNETEncoder(nn.Module):
