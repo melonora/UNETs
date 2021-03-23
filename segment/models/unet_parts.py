@@ -116,6 +116,6 @@ class UNETDecoder(nn.Module):
         for i in range(len(self.channels)-1):
             x = self.upconvs[i](x)
             encoder_feature = self.crop(encoder_features[i], x)
-            x = torch.cat([x, encoder_feature])
+            x = torch.cat([x, encoder_feature], dim=1)
             x = self.decode_UNET[i](x)
         return x
