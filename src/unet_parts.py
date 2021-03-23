@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torchvision
+# TODO: implement type hinting
+# from typing import Tuple
 
 
 class UNETBlock(nn.Module):
@@ -64,12 +66,13 @@ class UNETDecoder(nn.Module):
     def __init__(self, channels=(1024, 512, 256, 128, 64)):
         super().__init__()
         self.upconvs = nn.ModuleList(
-            [nn.ConvTranspose2d(channels[i], channels[i+1], 2, 2) for i in range(len(channels)-1)])
+            [nn.ConvTranspose2d(channels[i], channels[i+1], (2, 2), (2, 2)) for i in range(len(channels)-1)])
         self.decode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1]) for i in range(len(channels)-1)])
         self.channels = channels
 
-    def crop(self, encoder_feature, x):
-        """ Function to perform a centercrop for the skip connection as the feature map size on the left side of the
+    @staticmethod
+    def crop(encoder_feature, x):
+        """ Function to perform a center crop for the skip connection as the feature map size on the left side of the
         UNET model has a larger size than the feature map on the right side. Cropping allows for concatenating feature
         maps of the contracting and expanding path of the UNET model.
 
@@ -77,14 +80,15 @@ class UNETDecoder(nn.Module):
         ----------
         encoder_feature : torch.Tensor
             Given feature map of the encoder part of the UNET model.
-            
+
         x : torch.Tensor
-            The
-            
+            The output from the upsampled output of the previous decoder UNET block.
 
         Returns
         -------
-
+        torch.Tensor
+            Concatenation of feature map of the encoder part of the UNET model and the upsampled output of previous
+            decoder block of the UNET model.
         """
         _, _, H, W = x.shape
         encoder_feature = torchvision.transforms.CenterCrop([H, W])(encoder_feature)
