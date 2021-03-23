@@ -91,8 +91,10 @@ class UNETDecoder(nn.Module):
             decoder block of the UNET model.
         """
         _, _, H, W = x.shape
-        encoder_feature = torchvision.transforms.CenterCrop([H, W])(encoder_feature)
-        return encoder_feature
+        _, _, TH, TW = encoder_feature.shape
+        diff_h = int(round((TH-H) / 2.))
+        diff_w = int(round((TW - W) / 2.))
+        return encoder_feature[:, :, diff_h: (diff_h + H), diff_w: (diff_w + W)]
 
     def forward(self, x, encoder_features):
         """ Forward pass function for the decoder part of UNET as required when using Pytorch.
