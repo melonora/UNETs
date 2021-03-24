@@ -128,5 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Directory
-data/
+# Data
+/data
+
+# Pycharm
+/.idea
