@@ -75,11 +75,19 @@ class UNETEncoder(nn.Module):
 
 class UNETDecoder(nn.Module):
     """Generalization of the decoder part of the UNET model as described in the UNET paper """
-    def __init__(self, channels=(1024, 512, 256, 128, 64)):
+    def __init__(self, channels=(1024, 512, 256, 128, 64), batchNorm: bool = False, dropout: float = 0., padding=0,
+                 mode="convTrans"):
         super().__init__()
-        self.upconvs = nn.ModuleList(
-            [nn.ConvTranspose2d(channels[i], channels[i+1], (2, 2), (2, 2)) for i in range(len(channels)-1)])
-        self.decode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1]) for i in range(len(channels)-1)])
+        if mode == "convTrans":
+            self.ups = nn.ModuleList(
+                [nn.ConvTranspose2d(channels[i], channels[i+1], (2, 2), (2, 2)) for i in range(len(channels)-1)])
+        if mode == "up_bilinear":
+            self.ups = nn.ModuleList([nn.Sequential(
+                nn.Upsample(mode='bilinear', scale_factor=2),
+                nn.Conv2d(channels[i], channels[i+1], (1, 1)),
+            ) for i in range(len(channels)-1)])
+        self.decode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1], batchNorm, dropout, padding)
+                                          for i in range(len(channels)-1)])
         self.channels = channels
 
     @staticmethod
@@ -126,7 +134,7 @@ class UNETDecoder(nn.Module):
             Output from the UNET decoder.
         """
         for i in range(len(self.channels)-1):
-            x = self.upconvs[i](x)
+            x = self.ups[i](x)
             encoder_feature = self.crop(encoder_features[i], x)
             x = torch.cat([x, encoder_feature], dim=1)
             x = self.decode_UNET[i](x)
