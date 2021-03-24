@@ -16,7 +16,7 @@ class UNETBlock(nn.Module):
             block.append(nn.Dropout2d(p=dropout))
         return block
 
-    def __init__(self, ch_in: int, ch_out: int, batchNorm: bool = False, dropout: int = 0, padding: int = 0):
+    def __init__(self, ch_in: int, ch_out: int, batchNorm: bool = False, dropout: float = 0., padding: int = 0):
         super().__init__()
         ublock = list()
         ublock = self.append_block(ublock, ch_in, ch_out, batchNorm, dropout, padding)
@@ -43,9 +43,10 @@ class UNETBlock(nn.Module):
 class UNETEncoder(nn.Module):
     # TODO: Adjust to work with extended UNETBlock
     """Generalization of the encoder part of the UNET model as described in the UNET paper."""
-    def __init__(self, channels=(3, 64, 128, 256, 512, 1024)):
+    def __init__(self, channels=(3, 64, 128, 256, 512, 1024), batchNorm: bool = False, dropout: float = 0., padding=0):
         super().__init__()
-        self.encode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1]) for i in range(len(channels)-1)])
+        self.encode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1], batchNorm, dropout, padding)
+                                          for i in range(len(channels)-1)])
         self.mpool = nn.MaxPool2d(2)
 
     def forward(self, x):
