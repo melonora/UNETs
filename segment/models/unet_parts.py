@@ -6,11 +6,22 @@ import torch.nn as nn
 
 class UNETBlock(nn.Module):
     """Generalization of the standard UNET block as used in the encoder and decoder in UNET paper"""
-    def __init__(self, ch_in: int, ch_out: int):
+    @staticmethod
+    def append_block(block, ch_in, ch_out, batchNorm, dropout, padding):
+        block.append(nn.Conv2d(ch_in, ch_out, (3, 3), padding=padding))
+        block.append(nn.ReLU())
+        if batchNorm:
+            block.append(nn.BatchNorm2d(ch_out))
+        if dropout != 0:
+            block.append(nn.Dropout2d(p=dropout))
+        return block
+
+    def __init__(self, ch_in: int, ch_out: int, batchNorm: bool = False, dropout: int = 0, padding: int = 0):
         super().__init__()
-        self.conv1 = nn.Conv2d(ch_in, ch_out, (3, 3))
-        self.ReLU = nn.ReLU()
-        self.conv2 = nn.Conv2d(ch_out, ch_out, (3, 3))
+        ublock = list()
+        ublock = self.append_block(ublock, ch_in, ch_out, batchNorm, dropout, padding)
+        ublock = self.append_block(ublock, ch_out, ch_out, batchNorm, dropout, padding)
+        self.ublock = nn.Sequential(*ublock)
 
     def forward(self, x):
         """ Forward pass function for UNET_block as required when using Pytorch.
@@ -26,10 +37,11 @@ class UNETBlock(nn.Module):
         torch.Tensor
             Output of the UNET block as per used in the UNET paper.
         """
-        return self.ReLU(self.conv2(self.ReLU(self.conv1(x))))
+        return self.ublock(x)
 
 
 class UNETEncoder(nn.Module):
+    # TODO: Adjust to work with extended UNETBlock
     """Generalization of the encoder part of the UNET model as described in the UNET paper."""
     def __init__(self, channels=(3, 64, 128, 256, 512, 1024)):
         super().__init__()
