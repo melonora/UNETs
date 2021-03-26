@@ -1,4 +1,4 @@
-from .unet_parts import *
+from mics.segment.models.unet_parts import *
 import torch.nn as nn
 import torch.nn.functional as F
 
