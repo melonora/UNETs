@@ -163,7 +163,7 @@ class SkipConnectsConvs(nn.Module):
         super().__init__()
         self.channels = channels
         self.skips = nn.ModuleList([UNETBlock(channels[i], channels[i], batchNorm, dropout, padding)
-                                    for i in range(len(channels)-1)])
+                                    for i in range(len(channels))])
 
     def forward(self, encoder_features):
         """ Forward pass function for the skip connection part of adjusted UNET as required when using Pytorch.
@@ -180,7 +180,7 @@ class SkipConnectsConvs(nn.Module):
             The feature maps from the encoding part of the UNET model passed through a convolutional layer.
         """
         features = []
-        for i in range(len(self.channels)-1):
+        for i in range(len(self.channels)):
             x = self.skips[i](encoder_features[i])
             features.append(x)
         return features
