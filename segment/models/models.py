@@ -4,7 +4,9 @@ import torch.nn.functional as F
 
 
 class UNET(nn.Module):
-    """ Implementation of UNET model as per the paper of Ronneberg when using default values.  """
+    """ Implementation of UNET model as per the paper of Ronneberg when using default values. In case of skip being True
+     the feature maps are passed through a convolutional layer before being concatenated with feature maps from the
+     decoder. https://github.com/upashu1/Pytorch-UNet-2 claims this works better with noisy microarray data."""
     def __init__(self, encode_chs=(3, 64, 128, 256, 512, 1024), decode_chs=(1024, 512, 256, 128, 64), num_class=1,
                  keep_dim=False, skip=False, batchNorm: bool = False, dropout: float = 0., padding=0,
                  out_size=(572, 572)):
