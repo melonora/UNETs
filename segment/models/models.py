@@ -5,11 +5,56 @@ import torch.nn.functional as F
 
 class UNET(nn.Module):
     """ Implementation of UNET model as per the paper of Ronneberg when using default values. In case of skip being True
-     the feature maps are passed through a convolutional layer before being concatenated with feature maps from the
-     decoder. https://github.com/upashu1/Pytorch-UNet-2 claims this works better with noisy microarray data."""
-    def __init__(self, encode_chs=(3, 64, 128, 256, 512, 1024), decode_chs=(1024, 512, 256, 128, 64), num_class=1,
-                 keep_dim=False, skip=False, batchNorm: bool = False, dropout: float = 0., padding=0,
-                 out_size=(572, 572)):
+    the feature maps are passed through a convolutional layer before being concatenated with feature maps from the
+    decoder. https://github.com/upashu1/Pytorch-UNet-2 claims this works better with noisy microarray data.
+
+    Attributes
+    ----------
+    keep_dim: bool
+        True or false indicating whether the output of the model should have the same dimensions as the input.
+    output_size: Tuple[int, int]
+        Tuple indicating what the output height and width should be.
+    encode: UNETEncoder
+        The encoder part of the UNET model.
+    decode: UNETDecoder
+        The decoder part of the UNET model.
+    output: nn.Conv2d
+        Final convolutional layer creating the output of the UNET model.
+    skip: bool
+        True or false indicating whether skip connections will be passed through a UNETBlock.
+    skipConnects: SkipConnectsConvs
+        Skip connections being passed through two convolutional layers.
+     """
+
+    def __init__(self, encode_chs: Tuple[int, ...] = (3, 64, 128, 256, 512, 1024),
+                 decode_chs: Tuple[int, ...] = (1024, 512, 256, 128, 64), num_class: int = 1,
+                 keep_dim: bool = False, skip: bool = False, batchNorm: bool = False, dropout: float = 0.,
+                 padding: int = 0, out_size: Tuple[int, int] = (572, 572)):
+        """
+        Parameters
+        ----------
+        encode_chs: Tuple[int, ...]
+            Tuple containing integers as elements indicating the amount of channels to be used for each UNETBlock layer
+            in the encoder.
+        decode_chs: Tuple[int, ...]
+            Tuple containing integers as elements indicating the amount of channels to be used for each UNETBlock layer
+            in the decoder.
+        num_class: int
+            Amount of classes to be segmented
+        keep_dim: bool
+            True or false indicating whether the output of the model should have the same dimensions as the input.
+        skip: bool
+            True or false indicating whether skip connections will be passed through a UNETBlock.
+        batchNorm: bool
+            True or false indicating whether batch normalization should be applied in all the convolutional layers.
+        dropout: float
+            Float value between 0. and 1. indicating probability p to completely zero out a given channel. A value of 0.
+            is equal to no dropout being applied and a value of 1. would be equal to zeroing all channels.
+        padding: int
+            Amount of implicit padding on different sides of the input.
+        out_size: Tuple[int, int]
+            Tuple indicating the output height and width.
+        """
         super().__init__()
         self.keep_dim = keep_dim
         self.output_size = out_size
@@ -20,7 +65,7 @@ class UNET(nn.Module):
         if skip:
             self.skipConnects = SkipConnectsConvs(encode_chs[1:], batchNorm, dropout, padding)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ Forward pass function for the UNET model as required when using Pytorch.
 
         Parameters
