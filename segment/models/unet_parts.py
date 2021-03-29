@@ -5,10 +5,18 @@ from typing import Tuple, List, Any
 
 
 class UNETBlock(nn.Module):
-    """Generalization of the standard UNET block as used in the encoder and decoder in UNET paper"""
+    """ Generalization of the standard UNET block as used in the encoder and decoder in UNET paper. In the UNET paper
+    batch normalization, dropout and padding are not applied.
+
+    Attributes
+    ----------
+    ublock: nn.sequential
+        Pytorch sequential container containing two convolutional layers.
+    """
     @staticmethod
-    def append_block(block: List[Any], ch_in: int, ch_out: int, batchNorm: bool, dropout: float, padding: int):
-        """
+    def append_block(block: List[Any, ...], ch_in: int, ch_out: int, batchNorm: bool, dropout: float, padding: int)\
+            -> List[Any, ...]:
+        """ Function to append a convolutional layer to a list.
 
         Parameters
         ----------
@@ -34,7 +42,7 @@ class UNETBlock(nn.Module):
         block: List[Any, ...]
             List containing at least one full convolutional layer block.
         """
-        block.append(nn.Conv2d(ch_in, ch_out, (3, 3), padding=padding))
+        block.append(nn.Conv2d(ch_in, ch_out, (3, 3), padding=(padding, padding)))
         block.append(nn.ReLU())
         if batchNorm:
             block.append(nn.BatchNorm2d(ch_out))
@@ -43,13 +51,31 @@ class UNETBlock(nn.Module):
         return block
 
     def __init__(self, ch_in: int, ch_out: int, batchNorm: bool = False, dropout: float = 0., padding: int = 0):
+        """
+        Parameters
+        ----------
+        ch_in : int
+            Amount of input channels
+        ch_out : int
+            Amount of output channels
+        batchNorm : bool
+            Boolean True or False indicating whether batch normalization should be applied with default parameters in
+            Pytorch. These default parameters are eps=1e-05 (value added to denominator for numerical stability to avoid
+            division by zero), momentum=0.1, affine=True (learnable parameters for batch normalization),
+            track_running_stats=True (whether to use running mean and variance statistics).
+        dropout : float
+            Float value between 0. and 1. indicating probability p to completely zero out a given channel. A value of 0.
+            is equal to no dropout being applied and a value of 1. would be equal to zeroing all channels.
+        padding : int
+            Amount of implicit padding on different sides of the input.
+        """
         super().__init__()
         ublock = list()
         ublock = self.append_block(ublock, ch_in, ch_out, batchNorm, dropout, padding)
         ublock = self.append_block(ublock, ch_out, ch_out, batchNorm, dropout, padding)
         self.ublock = nn.Sequential(*ublock)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass function for UNET_block as required when using Pytorch.
 
         Parameters
@@ -59,21 +85,46 @@ class UNETBlock(nn.Module):
 
         Returns
         -------
-        nn.Sequential
-            A Pytorch sequential container containing two convolutional layer blocks.
+        x: torch.Tensor
+            Feature map of dimensions N x C x H x W where N is the amount of image stacks in the
+            minibatch, C is the amount of channels, H is the height and W is the width.
         """
         return self.ublock(x)
 
 
 class UNETEncoder(nn.Module):
-    """Generalization of the encoder part of the UNET model as described in the UNET paper."""
-    def __init__(self, channels=(3, 64, 128, 256, 512, 1024), batchNorm: bool = False, dropout: float = 0., padding=0):
+    """ Generalization of the encoder part of the UNET model as described in the UNET paper. If default parameters are
+    used the encoder is equal to the encoder from the UNET paper. Batch normalization, dropout and padding can
+    additionally be applied.
+
+    Attributes
+    ----------
+    encode_UNET: nn.ModuleList
+        List containing UNETBlocks as submodules for the encoder.
+    mpool: nn.MaxPool
+        MaxPool to be applied after each pass through a UNETBlock.
+    """
+    def __init__(self, channels: Tuple[int, ...] = (3, 64, 128, 256, 512, 1024), batchNorm: bool = False,
+                 dropout: float = 0., padding: int = 0):
+        """
+        Parameters
+        ----------
+        channels: Tuple[int, ...]
+            Tuple containing integers as elements indicating the amount of channels to be used for each UNETBlock layer.
+        batchNorm: bool
+            True or false indicating whether batch normalization has to be applied
+        dropout : float
+            Float value between 0. and 1. indicating probability p to completely zero out a given channel. A value of 0.
+            is equal to no dropout being applied and a value of 1. would be equal to zeroing all channels.
+        padding : int
+            Amount of implicit padding on different sides of the input.
+        """
         super().__init__()
         self.encode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1], batchNorm, dropout, padding)
                                           for i in range(len(channels)-1)])
         self.mpool = nn.MaxPool2d(2)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> List[Any, ...]:
         """Forward pass function for the encoder part of UNET as required when using Pytorch. This function returns
         the features obtained from each UNET_block in the encoder part of the UNET model.
 
@@ -97,9 +148,37 @@ class UNETEncoder(nn.Module):
 
 
 class UNETDecoder(nn.Module):
-    """Generalization of the decoder part of the UNET model as described in the UNET paper"""
-    def __init__(self, channels=(1024, 512, 256, 128, 64), batchNorm: bool = False, dropout: float = 0., padding=0,
-                 mode="convTrans"):
+    """ Generalization of the decoder part of the UNET model as described in the UNET paper. If default parameters
+    are used the decoder is equal to the decoder used in the UNET paper. Batch normalization, dropout and padding
+    can additionally be applied.
+
+    Attributes
+    ----------
+    ups: nn.ModuleList
+        List containing the upsample steps of the decoder as submodules.
+    decode_UNET: nn.ModuleList
+        List containing the UNETBlocks of the decoder as submodules.
+    channels: Tuple[int, ...]
+        Tuple containing integers as element indicating the amount of channels for each layer of the decoder.
+    """
+    def __init__(self, channels: Tuple[int, ...] = (1024, 512, 256, 128, 64), batchNorm: bool = False,
+                 dropout: float = 0., padding: int = 0, mode: str = "convTrans"):
+        """"
+         Parameters
+        ----------
+        channels: Tuple[int, ...]
+            Tuple containing integers as elements indicating the amount of channels to be used for each UNETBlock layer.
+        batchNorm: bool
+            True or false indicating whether batch normalization has to be applied
+        dropout : float
+            Float value between 0. and 1. indicating probability p to completely zero out a given channel. A value of 0.
+            is equal to no dropout being applied and a value of 1. would be equal to zeroing all channels.
+        padding : int
+            Amount of implicit padding on different sides of the input.
+        mode: str
+            Mode by which the upsampling in the decoder is performed. Must be equal to either "convTrans" or
+            "bilinear".
+        """
         super().__init__()
         if mode == "convTrans":
             self.ups = nn.ModuleList(
@@ -114,7 +193,7 @@ class UNETDecoder(nn.Module):
         self.channels = channels
 
     @staticmethod
-    def crop(encoder_feature, x):
+    def crop(encoder_feature: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
         """Function to perform a center crop for the skip connection as the feature map size on the left side of the
         UNET model has a larger size than the feature map on the right side. Cropping allows for concatenating feature
         maps of the contracting and expanding path of the UNET model.
@@ -138,7 +217,7 @@ class UNETDecoder(nn.Module):
         diff_w = int(round((TW - W) / 2.))
         return encoder_feature[:, :, diff_h: (diff_h + H), diff_w: (diff_w + W)]
 
-    def forward(self, x, encoder_features):
+    def forward(self, x: torch.Tensor, encoder_features: List[torch.Tensor, ...]) -> torch.Tensor:
         """Forward pass function for the decoder part of UNET as required when using Pytorch.
 
         Parameters
@@ -171,7 +250,7 @@ class SkipConnectsConvs(nn.Module):
         self.skips = nn.ModuleList([UNETBlock(channels[i], channels[i], batchNorm, dropout, padding)
                                     for i in range(len(channels))])
 
-    def forward(self, encoder_features):
+    def forward(self, encoder_features: List[torch.Tensor, ...]) -> List[torch.Tensor, ...]:
         """ Forward pass function for the skip connection part of adjusted UNET as required when using Pytorch.
 
         Parameters
