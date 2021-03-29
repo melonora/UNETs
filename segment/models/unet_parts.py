@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-# TODO: implement type hinting
 from typing import Tuple, List, Any
 
 
