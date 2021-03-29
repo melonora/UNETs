@@ -1,33 +1,38 @@
 import torch
 import torch.nn as nn
 # TODO: implement type hinting
-# from typing import Tuple
+from typing import Tuple, List, Any
 
 
 class UNETBlock(nn.Module):
     """Generalization of the standard UNET block as used in the encoder and decoder in UNET paper"""
     @staticmethod
-    def append_block(block, ch_in, ch_out, batchNorm, dropout, padding):
+    def append_block(block: List[Any], ch_in: int, ch_out: int, batchNorm: bool, dropout: float, padding: int):
         """
 
         Parameters
         ----------
-        block :
-            
-        ch_in :
-            
-        ch_out :
-            
-        batchNorm :
-            
-        dropout :
-            
-        padding :
-            
+        block : List[Any]
+            Empty list or list containing a given amount of UNETBlocks as elements
+        ch_in : int
+            Amount of input channels
+        ch_out : int
+            Amount of output channels
+        batchNorm : bool
+            Boolean True or False indicating whether batch normalization should be applied with default parameters in
+            Pytorch. These default parameters are eps=1e-05 (value added to denominator for numerical stability to avoid
+            division by zero), momentum=0.1, affine=True (learnable parameters for batch normalization),
+            track_running_stats=True (whether to use running mean and variance statistics).
+        dropout : float
+            Float value between 0. and 1. indicating probability p to completely zero out a given channel. A value of 0.
+            is equal to no dropout being applied and a value of 1. would be equal to zeroing all channels.
+        padding : int
+            Amount of implicit padding on different sides of the input.
 
         Returns
         -------
-
+        block: List[Any, ...]
+            List containing at least one full convolutional layer block.
         """
         block.append(nn.Conv2d(ch_in, ch_out, (3, 3), padding=padding))
         block.append(nn.ReLU())
@@ -54,15 +59,13 @@ class UNETBlock(nn.Module):
 
         Returns
         -------
-
-        
+        nn.Sequential
+            A Pytorch sequential container containing two convolutional layer blocks.
         """
         return self.ublock(x)
 
 
 class UNETEncoder(nn.Module):
-    """ """
-    # TODO: Adjust to work with extended UNETBlock
     """Generalization of the encoder part of the UNET model as described in the UNET paper."""
     def __init__(self, channels=(3, 64, 128, 256, 512, 1024), batchNorm: bool = False, dropout: float = 0., padding=0):
         super().__init__()
@@ -82,8 +85,8 @@ class UNETEncoder(nn.Module):
 
         Returns
         -------
-
-        
+        features: List[Any, ...]
+            List containing feature maps of the different layers of the UNET encoder.
         """
         features = []
         for u_block in self.encode_UNET:
@@ -125,8 +128,9 @@ class UNETDecoder(nn.Module):
 
         Returns
         -------
-
-        
+        encoder_feature : torch.Tensor
+            Center cropped feature map of dimensions N x C x H x W where N is the amount of image stacks in the
+            minibatch, C is the amount of channels, H is the height and W is the Width.
         """
         _, _, H, W = x.shape
         _, _, TH, TW = encoder_feature.shape
@@ -146,8 +150,9 @@ class UNETDecoder(nn.Module):
 
         Returns
         -------
-
-        
+        x: torch.Tensor
+            Feature map of dimensions N x C x H x W where N is the amount of image stacks in the
+            minibatch, C is the amount of channels, H is the height and W is the Width
         """
         for i in range(len(self.channels)-1):
             x = self.ups[i](x)
@@ -158,7 +163,8 @@ class UNETDecoder(nn.Module):
 
 
 class SkipConnectsConvs(nn.Module):
-    """ """
+    """ Class allowing for skip connections of a UNET model to be passed through a convolutional layer.
+     https://github.com/upashu1/Pytorch-UNet-2 claims this works better when working with noisy microarray data."""
     def __init__(self, channels=(64, 128, 256, 512, 1024), batchNorm: bool = False, dropout: float = 0., padding=0):
         super().__init__()
         self.channels = channels
@@ -172,7 +178,6 @@ class SkipConnectsConvs(nn.Module):
         ----------
         encoder_features : List[torch.Tensor, ...]
             The feature maps from the encoding part of the UNET model.
-            
 
         Returns
         -------
