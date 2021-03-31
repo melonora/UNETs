@@ -13,8 +13,8 @@ class UNETBlock(nn.Module):
         Pytorch sequential container containing two convolutional layers.
     """
     @staticmethod
-    def append_block(block: List[Any, ...], ch_in: int, ch_out: int, batchNorm: bool, dropout: float, padding: int)\
-            -> List[Any, ...]:
+    def append_block(block: List[Any], ch_in: int, ch_out: int, batchNorm: bool, dropout: float, padding: int)\
+            -> List[Any]:
         """ Function to append a convolutional layer to a list.
 
         Parameters
@@ -49,7 +49,8 @@ class UNETBlock(nn.Module):
             block.append(nn.Dropout2d(p=dropout))
         return block
 
-    def __init__(self, ch_in: int, ch_out: int, batchNorm: bool = False, dropout: float = 0., padding: int = 0):
+    def __init__(self, ch_in: int, ch_out: int, ch_mid: int, batchNorm: bool = False, dropout: float = 0.,
+                 padding: int = 0):
         """
         Parameters
         ----------
@@ -70,8 +71,8 @@ class UNETBlock(nn.Module):
         """
         super().__init__()
         ublock = list()
-        ublock = self.append_block(ublock, ch_in, ch_out, batchNorm, dropout, padding)
-        ublock = self.append_block(ublock, ch_out, ch_out, batchNorm, dropout, padding)
+        ublock = self.append_block(ublock, ch_in, ch_mid, batchNorm, dropout, padding)
+        ublock = self.append_block(ublock, ch_mid, ch_out, batchNorm, dropout, padding)
         self.ublock = nn.Sequential(*ublock)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -119,11 +120,11 @@ class UNETEncoder(nn.Module):
             Amount of implicit padding on different sides of the input.
         """
         super().__init__()
-        self.encode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1], batchNorm, dropout, padding)
-                                          for i in range(len(channels)-1)])
+        self.encode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1], channels[i+1], batchNorm, dropout,
+                                                    padding) for i in range(len(channels)-1)])
         self.mpool = nn.MaxPool2d(2)
 
-    def forward(self, x: torch.Tensor) -> List[Any, ...]:
+    def forward(self, x: torch.Tensor) -> List[Any]:
         """Forward pass function for the encoder part of UNET as required when using Pytorch. This function returns
         the features obtained from each UNET_block in the encoder part of the UNET model.
 
@@ -187,8 +188,8 @@ class UNETDecoder(nn.Module):
                 nn.Upsample(mode='bilinear', scale_factor=2),
                 nn.Conv2d(channels[i], channels[i+1], (1, 1)),
             ) for i in range(len(channels)-1)])
-        self.decode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1], batchNorm, dropout, padding)
-                                          for i in range(len(channels)-1)])
+        self.decode_UNET = nn.ModuleList([UNETBlock(channels[i], channels[i+1], channels[i+1], batchNorm, dropout,
+                                                    padding) for i in range(len(channels)-1)])
         self.channels = channels
 
     @staticmethod
@@ -216,7 +217,7 @@ class UNETDecoder(nn.Module):
         diff_w = int(round((TW - W) / 2.))
         return encoder_feature[:, :, diff_h: (diff_h + H), diff_w: (diff_w + W)]
 
-    def forward(self, x: torch.Tensor, encoder_features: List[torch.Tensor, ...]) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, encoder_features: List[torch.Tensor]) -> torch.Tensor:
         """Forward pass function for the decoder part of UNET as required when using Pytorch.
 
         Parameters
@@ -246,10 +247,10 @@ class SkipConnectsConvs(nn.Module):
     def __init__(self, channels=(64, 128, 256, 512, 1024), batchNorm: bool = False, dropout: float = 0., padding=0):
         super().__init__()
         self.channels = channels
-        self.skips = nn.ModuleList([UNETBlock(channels[i], channels[i], batchNorm, dropout, padding)
+        self.skips = nn.ModuleList([UNETBlock(channels[i], channels[i], channels[i], batchNorm, dropout, padding)
                                     for i in range(len(channels))])
 
-    def forward(self, encoder_features: List[torch.Tensor, ...]) -> List[torch.Tensor, ...]:
+    def forward(self, encoder_features: List[torch.Tensor]) -> List[torch.Tensor]:
         """ Forward pass function for the skip connection part of adjusted UNET as required when using Pytorch.
 
         Parameters
